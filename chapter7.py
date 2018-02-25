@@ -14,7 +14,7 @@ plt.rcParams['xtick.labelsize'] = 12
 plt.rcParams['ytick.labelsize'] = 12
 
 # Where to save figures to.
-PROJECT_ROOT_DIR = r'C:/users/Tim/pythonscripts/MLbook'
+PROJECT_ROOT_DIR = 'C:\\Users\\Tim\\pythonscripts\\MLbook'
 CHAPTER_ID = 'ensembles'
 
 def image_path(fig_id):
@@ -95,8 +95,8 @@ from sklearn.tree import DecisionTreeClassifier
 
 # Bagging classifier which runs on all cores, set bootstrap to False for a pasting.
 bag_clf = BaggingClassifier(
-                            DecisionTreeClassifier(), n_estimators=500,
-                            max_samples=100, bootstrap=True, n_jobs=-1)
+                            DecisionTreeClassifier(), n_estimators=10,
+                            max_samples=100, bootstrap=True, n_jobs=1)
 bag_clf.fit(X_train, y_train)
 y_pred = bag_clf.predict(X_test)
 
@@ -138,12 +138,89 @@ data to train on it is possible to evaluate each algorithm with the left over
 data.
 '''
 bag_clf = BaggingClassifier(
-                            DecisionTreeClassifier(), n_estimators=500,
+                            DecisionTreeClassifier(), n_estimators=10,
                             bootstrap=True, oob_score=True,
-                            n_jobs=-1) # Shows out of the bag score.
+                            n_jobs=1) # Shows out of the bag score.
 bag_clf.fit(X_train, y_train)
 bag_clf.oob_score_
 
 from sklearn.metrics import accuracy_score
 y_pred = bag_clf.predict(X_test)
 accuracy_score(y_test, y_pred)
+
+# Random forests
+from sklearn.ensemble import RandomForestClassifier
+rnd_clf = RandomForestClassifier(n_estimators=10, max_leaf_nodes=16, n_jobs=1)
+rnd_clf.fit(X_train, y_train)
+y_pred_rf = rnd_clf.predict(X_test)
+
+# Bagging classifier similar to random forest above.
+bag_clf = BaggingClassifier(
+                            DecisionTreeClassifier(splitter='random', max_leaf_nodes=16),
+                            n_estimators=10, max_samples=1.0, bootstrap=True, n_jobs=1)
+
+# Extra trees classifier
+'''
+Makes the trees more random than random forest, this increases bias and decreases
+variance.
+'''
+from sklearn.ensemble import ExtraTreesClassifier
+extra_clf = ExtraTreesClassifier(n_estimators=10, n_jobs=1)
+extra_clf.fit(X_train, y_train)
+extra_clf_pred = extra_clf.predict(X_test)
+accuracy_score(y_test, extra_clf_pred)
+
+# Feature importance in random classifier
+from sklearn.datasets import load_iris
+iris = load_iris()
+rnd_clf = RandomForestClassifier(n_estimators=10, n_jobs=1)
+rnd_clf.fit(iris['data'], iris['target'])
+for name, score in zip(iris['feature_names'], rnd_clf.feature_importances_):
+    print(name, score)
+    
+from sklearn.datasets import fetch_mldata
+mnist = fetch_mldata('MNIST original')
+rnd_clf = RandomForestClassifier(random_state=42)
+rnd_clf.fit(mnist['data'], mnist['target'])
+
+# Plot MNIST digit
+def plot_digit(data):
+    image = data.reshape(28, 28)
+    plt.imshow(image, cmap=matplotlib.cm.hot,
+               interpolation='nearest')
+    plt.axis('off')
+    
+# Plot feature importances
+plot_digit(rnd_clf.feature_importances_)
+cbar = plt.colorbar(ticks=[rnd_clf.feature_importances_.min(), rnd_clf.feature_importances_.max()])
+cbar.ax.set_yticklabels(['not important', 'very important'])
+plt.show()
+
+# Boosting
+'''
+Refers to any ensemble method that can combine several weak learners into
+a strong learner.
+'''
+# Adaboost.
+'''
+Focuses more on unterfitted instances. Results in a higher focus on hard cases.
+Ie: A base classifier is trained and used to make predictions on the training
+set, then the weight of misclassified training instances is increased and a new
+classifier is trained.
+'''
+from sklearn.ensemble import AdaBoostClassifier
+ada_clf = AdaBoostClassifier(
+                             DecisionTreeClassifier(max_depth=1), n_estimators=100,
+                             algorithm='SAMME.R', learning_rate=0.5)
+ada_clf.fit(X_train, y_train)
+y_pred = ada_clf.predict(X_test)
+accuracy_score(y_test, y_pred)
+
+# Gradient boosting.
+'''
+This does the same as Adaboost but instead of iteratively changing the weights
+of specific inputs it tries to fit a new predictor to the residual errors made
+by the previous predictor.
+'''
+
+
