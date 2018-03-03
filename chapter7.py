@@ -294,3 +294,183 @@ plt.ylabel("$y$", fontsize=16, rotation=0)
 
 plt.show()
 
+'''
+If you set learning rate low more trees are required in the ensemble to fit the
+training set however they tend to generalise better. This is called 'Shrinkage'.
+'''
+
+# Early stopping.
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+X_train, X_val, y_train, y_val = train_test_split(X, y)
+
+gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=120)
+gbrt.fit(X_train, y_train)
+
+errors = [mean_squared_error(y_val, y_pred) for y_pred in gbrt.staged_predict(X_val)]
+bst_n_estimators = np.argmin(errors)
+
+gbrt_best = GradientBoostingRegressor(max_depth=2, n_estimators=bst_n_estimators)
+gbrt_best.fit(X_train, y_train)
+
+min_error = np.min(errors)
+
+# Plot error with number of trees and best model.
+plt.figure(figsize=(11, 4))
+
+plt.subplot(121)
+plt.plot(errors, 'b.-')
+plt.plot([bst_n_estimators, bst_n_estimators], [0, min_error], 'k--')
+plt.plot([0, 120], [min_error, min_error], 'k--')
+plt.plot(bst_n_estimators, min_error, 'ko')
+plt.text(bst_n_estimators, min_error*1.2, 'Minimum', ha='center', fontsize=14)
+plt.axis([0, 120, 0, 0.01])
+plt.xlabel('Number of trees')
+plt.title('Validation error', fontsize=14)
+
+plt.subplot(122)
+plot_predictions([gbrt_best], X, y, axes=[-0.5, 0.5, -0.1, 0.8])
+plt.title('Best model (%d trees)' % bst_n_estimators, fontsize=14)
+plt.show()
+
+# Finding best tree count.
+gbrt = GradientBoostingRegressor(max_depth=2, warm_start=True)
+min_val_error = float('inf')
+error_going_up = 0
+for n_estimators in range(1, 120):
+    gbrt.n_estimators = n_estimators
+    gbrt.fit(X_train, y_train)
+    y_pred = gbrt.predict(X_val)
+    val_error = mean_squared_error(y_val, y_pred)
+    if val_error < min_val_error:
+        min_val_error = val_error
+        error_going_up = 0
+    else:
+        error_going_up += 1
+        if error_going_up == 5:
+            break # Early stopping
+            
+print(gbrt.n_estimators)
+
+# Stochastic gradient boosting
+gbrt = GradientBoostingRegressor(max_depth=2, n_estimators=120, subsample=0.25)
+gbrt.fit(X_train, y_train)
+
+errors = [mean_squared_error(y_val, y_pred) for y_pred in gbrt.staged_predict(X_val)]
+bst_n_estimators = np.argmin(errors)
+
+gbrt_best = GradientBoostingRegressor(max_depth=2, n_estimators=bst_n_estimators)
+gbrt_best.fit(X_train, y_train)
+
+min_error = np.min(errors)
+
+# Stacking
+'''
+Instead of using voting etc. we train a model that will learn to aggregate the
+predictions. In the example of 3 predictions they are 'blended' by a blender or
+meta learner which in turn outputs the final prediction.
+
+To train the blender we use a hold-out set. First this splits the training set
+into two subsets, the first subset is used to train the predictions in the 
+first layer. 
+
+Then the first layer predictors are used to make predictions on the second
+(held-out) set. This allows clean predictions are the predictors have never seen
+these instances during training.
+
+We then create a new training set using these predicted values as input features
+and keeping the target values. The blender is then trained on the new training set
+so it learns to predict the target value given the first layer's predictions.
+'''
+
+# Exercises.
+'''
+1. If you have trained five different models on the exact same training data,
+and they all achieve 95% precision, is there any chance that you can combine these
+models to get better results? If so, how?
+
+Yes - Because they are different models they will likely get different outputs
+right and wrong even if they all achieve 95% precision. This means that when ensembled
+precision should increase as more votes mean there is an increased liklihood of
+the output being correct.
+
+2. What is the difference between hard and soft voting classifiers?
+
+A hard voting classifier directly votes for the highest percentile class and
+ignores the rest when voting. A soft vote is when the percentages are all combined
+and then averaged.
+
+3. Is it possible to speed up the training of a bagging ensemble by distributing it
+across multiple servers? What about pasting ensembles, boosting ensembles, random
+forests, or stacking ensembles?
+
+Bagging - can be speed up and distributed as each predictor in the ensemble
+is independent of the others.
+
+Pasting - same as above
+
+Random forests - same as above
+
+boosting ensembles - cannot be done as it is a sequential task.
+
+Stacking - Yes, however it still must be trained layer by layer.
+
+4. What is the benefit of out-of-bag evaluation?
+
+5. What makes Extra-trees more random that regular random forests?? How can
+this extra randomness help? Are Extra-trees slower or faster than regular
+random forests?
+
+6. If your adaboost ensemble underfits the training data, what hyperparameters
+should you tweak and how?
+
+7. If your gradient boosting ensemble overfits the training set, should
+you increase or decrease the learning rate?
+'''
+
+'''
+8. Load the MNIST data and split it into a training set, validation set and test
+set. Then train various classifiers. Then, try to combine them into an ensemble 
+that outperforms them all on the validation set. How much better does it perform
+compared to the individual classifiers?
+'''
+
+from sklearn.datasets import fetch_mldata
+mnist = fetch_mldata('MNIST original')
+X = mnist['data']
+y = mnist['target']
+X_train = X[:50000]
+X_validate = X[50000:60000]
+X_test = X[60000:]
+y_train = y[:50000]
+y_validate = y[50000:60000]
+y_test = y[60000:]
+
+# Train classifiers
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+
+forest1 = DecisionTreeClassifier(max_depth=2)
+forest2 = DecisionTreeClassifier(max_depth=3)
+forest3 = DecisionTreeClassifier(max_depth=4)
+svc = SVC()
+
+voting_clf = VotingClassifier(
+                              estimators=[('for1', forest1), ('for2', forest2),
+                                          ('for3', forest3), ('svc', svc)],
+                                          voting='soft'
+                                          )
+voting_clf.fit(X_train, y_train)
+
+
+
+
+'''
+9. Run the individual classifiers from the previous exercise to make predictions
+on the validation set, and create a new training set with the resulting predictions:
+each training instance is a vector containing the set of predictions from all your
+classifiers for an image, and the target images class. This is a blender, and
+together with theclassifiers they form a stacking ensemble. Evaluate the model
+on the test set, how does it compare to the voting classifier used earlier?
+'''
