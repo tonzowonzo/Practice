@@ -40,3 +40,28 @@ from sklearn.decomposition import PCA
 pca = PCA(n_components=2)
 X2D = pca.fit_transform(X)
 print(X2D[:5])
+
+# PCA for compression.
+from sklearn.datasets import fetch_mldata
+from sklearn.model_selection import train_test_split
+mnist = fetch_mldata('MNIST original')
+X = mnist['data']
+y = mnist['target']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y)
+
+# Compress mnist data.
+pca = PCA()
+pca.fit(X_train)
+cumsum = np.cumsum(pca.explained_variance_ratio_)
+d = np.argmax(cumsum >= 0.95) + 1
+print(d)
+
+# Compress with maintaining 95% of variance using hyperparameter
+pca = PCA(n_components=0.95)
+X_reduced = pca.fit_transform(X_train)
+print(pca.n_components_)
+# This outputs 154, the same as doing it with numpy above
+
+# Decompress the PCA
+X_recovered = pca.inverse_transform(X_reduced)
