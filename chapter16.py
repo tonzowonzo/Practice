@@ -413,3 +413,26 @@ video = plot_animation(frames)
 plt.show()
 
 # Markov chains.
+transition_probabilities = [
+        [0.7, 0.2, 0.0, 0.1],  # from s0 to s0, s1, s2, s3
+        [0.0, 0.0, 0.9, 0.1],  # from s1 to ...
+        [0.0, 1.0, 0.0, 0.0],  # from s2 to ...
+        [0.0, 0.0, 0.0, 1.0],  # from s3 to ...
+    ]
+
+n_max_steps = 50
+
+def print_sequence(start_state=0):
+    current_state = start_state
+    print("States:", end=" ")
+    for step in range(n_max_steps):
+        print(current_state, end=" ")
+        if current_state == 3:
+            break
+        current_state = np.random.choice(range(4), p=transition_probabilities[current_state])
+    else:
+        print("...", end="")
+    print()
+
+for _ in range(10):
+    print_sequence()
